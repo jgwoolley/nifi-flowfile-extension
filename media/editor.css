@@ -1,0 +1,61 @@
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-editor-background);
+  margin: 0;
+  padding: 1rem;
+}
+
+main {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.records-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(140px, 220px) auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+input,
+textarea,
+button,
+select {
+  font: inherit;
+}
+
+textarea,
+input[type='text'],
+select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.25rem 0.5rem;
+}
+
+.attribute-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+#validation-list {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+#schema-hint {
+  opacity: 0.85;
+}

@@ -1,0 +1,60 @@
+{
+  "name": "nifi-flowfile-extension",
+  "displayName": "NiFi FlowFile v3 Editor",
+  "description": "VS Code custom editor for .flowfile and .flowfile-v3 documents",
+  "version": "0.0.1",
+  "publisher": "jgwoolley",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCustomEditor:nifiFlowFile.flowFileV3Editor"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "nifiFlowFile.flowFileV3Editor",
+        "displayName": "FlowFile v3 Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.flowfile"
+          },
+          {
+            "filenamePattern": "*.flowfile-v3"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "test": "npm run compile"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jgwoolley/nifi-flowfile-extension.git"
+  },
+  "keywords": [
+    "nifi",
+    "flowfile",
+    "custom-editor"
+  ],
+  "author": "",
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/vscode": "^1.125.0",
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
+    "eslint": "^8.57.1",
+    "typescript": "^5.9.2"
+  }
+}
