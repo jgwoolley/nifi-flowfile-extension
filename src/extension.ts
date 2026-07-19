@@ -126,8 +126,9 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
 
   async saveCustomDocument(
     document: FlowFileBinaryDocument,
-    _cancellation: vscode.CancellationToken
+    cancellation: vscode.CancellationToken
   ): Promise<void> {
+    void cancellation;
     const bytes = serializeFlowFileStream(document.records);
     await vscode.workspace.fs.writeFile(document.uri, bytes);
   }
@@ -135,16 +136,18 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
   async saveCustomDocumentAs(
     document: FlowFileBinaryDocument,
     destination: vscode.Uri,
-    _cancellation: vscode.CancellationToken
+    cancellation: vscode.CancellationToken
   ): Promise<void> {
+    void cancellation;
     const bytes = serializeFlowFileStream(document.records);
     await vscode.workspace.fs.writeFile(destination, bytes);
   }
 
   async revertCustomDocument(
     document: FlowFileBinaryDocument,
-    _cancellation: vscode.CancellationToken
+    cancellation: vscode.CancellationToken
   ): Promise<void> {
+    void cancellation;
     const bytes = await vscode.workspace.fs.readFile(document.uri);
     const parseResult = parseFlowFileStream(bytes);
     document.setRecords(parseResult.records);
@@ -155,8 +158,9 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
   async backupCustomDocument(
     document: FlowFileBinaryDocument,
     context: vscode.CustomDocumentBackupContext,
-    _cancellation: vscode.CancellationToken
+    cancellation: vscode.CancellationToken
   ): Promise<vscode.CustomDocumentBackup> {
+    void cancellation;
     const bytes = serializeFlowFileStream(document.records);
     await vscode.workspace.fs.writeFile(context.destination, bytes);
 
@@ -361,23 +365,24 @@ function validateRecords(records: FlowFileRecord[]): string[] {
   return errors;
 }
 
+type FlowFileRecordPayload = {
+  attributes?: unknown;
+  contentText?: unknown;
+};
+
 function normalizeIncomingRecords(payload: unknown): FlowFileRecord[] {
   if (!Array.isArray(payload)) {
     return [createDefaultRecord()];
   }
 
   const records: FlowFileRecord[] = payload.map((record): FlowFileRecord => {
+    const candidate = (record ?? {}) as FlowFileRecordPayload;
     const contentText =
-      record && typeof record === 'object' && 'contentText' in record && typeof record.contentText === 'string'
-        ? record.contentText
-        : '';
+      typeof candidate.contentText === 'string' ? candidate.contentText : '';
 
     const attributes =
-      record &&
-      typeof record === 'object' &&
-      'attributes' in record &&
-      Array.isArray(record.attributes)
-        ? record.attributes
+      Array.isArray(candidate.attributes)
+        ? candidate.attributes
             .map((attribute): FlowFileAttribute | null => {
               if (!Array.isArray(attribute) || attribute.length < 2) {
                 return null;
