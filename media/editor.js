@@ -2,45 +2,74 @@
   const vscode = acquireVsCodeApi();
 
   const state = {
-    flowFile: {
-      version: 3,
-      id: '',
-      entryDate: '',
-      lineageStartDate: '',
-      attributes: {},
-      content: ''
-    }
+    records: [createDefaultRecord()],
+    selectedIndex: 0
   };
 
-  const versionInput = document.getElementById('version');
-  const idInput = document.getElementById('id');
-  const entryDateInput = document.getElementById('entryDate');
-  const lineageStartDateInput = document.getElementById('lineageStartDate');
-  const contentInput = document.getElementById('content');
-  const attributesContainer = document.getElementById('attributes');
-  const validationList = document.getElementById('validation-list');
   const schemaHint = document.getElementById('schema-hint');
+  const recordSelect = document.getElementById('record-select');
+  const addRecordButton = document.getElementById('add-record');
+  const removeRecordButton = document.getElementById('remove-record');
+  const attributesContainer = document.getElementById('attributes');
   const addAttributeButton = document.getElementById('add-attribute');
+  const contentInput = document.getElementById('content');
   const validateButton = document.getElementById('validate');
   const saveButton = document.getElementById('save');
+  const validationList = document.getElementById('validation-list');
 
-  function render() {
-    versionInput.value = Number(state.flowFile.version || 3);
-    idInput.value = state.flowFile.id || '';
-    entryDateInput.value = state.flowFile.entryDate || '';
-    lineageStartDateInput.value = state.flowFile.lineageStartDate || '';
-    contentInput.value = state.flowFile.content || '';
+  function createDefaultRecord() {
+    return {
+      attributes: [['filename', 'flowfile.txt']],
+      contentText: ''
+    };
+  }
 
-    attributesContainer.innerHTML = '';
-    const entries = Object.entries(state.flowFile.attributes || {});
-    if (entries.length === 0) {
-      createAttributeRow('', '');
-      return;
+  function normalizeRecords(records) {
+    if (!Array.isArray(records) || records.length === 0) {
+      return [createDefaultRecord()];
     }
 
-    for (const [key, value] of entries) {
-      createAttributeRow(key, value);
+    return records.map((record) => {
+      const attributes = Array.isArray(record.attributes)
+        ? record.attributes
+            .filter((attribute) => Array.isArray(attribute) && attribute.length >= 2)
+            .map((attribute) => [String(attribute[0] ?? ''), String(attribute[1] ?? '')])
+        : [];
+
+      return {
+        attributes,
+        contentText: typeof record.contentText === 'string' ? record.contentText : ''
+      };
+    });
+  }
+
+  function getCurrentRecord() {
+    if (!state.records[state.selectedIndex]) {
+      state.records[state.selectedIndex] = createDefaultRecord();
     }
+    return state.records[state.selectedIndex];
+  }
+
+  function renderRecordOptions() {
+    recordSelect.innerHTML = '';
+
+    state.records.forEach((_, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = `Record ${index + 1}`;
+      recordSelect.appendChild(option);
+    });
+
+    if (state.selectedIndex >= state.records.length) {
+      state.selectedIndex = state.records.length - 1;
+    }
+
+    if (state.selectedIndex < 0) {
+      state.selectedIndex = 0;
+    }
+
+    recordSelect.value = String(state.selectedIndex);
+    removeRecordButton.disabled = state.records.length <= 1;
   }
 
   function createAttributeRow(key, value) {
@@ -73,78 +102,122 @@
   }
 
   function rebuildAttributesFromDom() {
-    const attributes = {};
-    const rows = attributesContainer.querySelectorAll('.attribute-row');
+    const currentRecord = getCurrentRecord();
+    const attributes = [];
 
-    rows.forEach((row) => {
+    attributesContainer.querySelectorAll('.attribute-row').forEach((row) => {
       const inputs = row.querySelectorAll('input');
       const key = inputs[0].value.trim();
       const value = inputs[1].value;
       if (key.length > 0) {
-        attributes[key] = value;
+        attributes.push([key, value]);
       }
     });
 
-    state.flowFile.attributes = attributes;
+    currentRecord.attributes = attributes;
   }
 
   function readFormToState() {
-    state.flowFile.version = Number(versionInput.value || 3);
-    state.flowFile.id = idInput.value;
-    state.flowFile.entryDate = entryDateInput.value;
-    state.flowFile.lineageStartDate = lineageStartDateInput.value;
-    state.flowFile.content = contentInput.value;
+    const currentRecord = getCurrentRecord();
+    currentRecord.contentText = contentInput.value;
     rebuildAttributesFromDom();
+  }
+
+  function renderCurrentRecord() {
+    const currentRecord = getCurrentRecord();
+    attributesContainer.innerHTML = '';
+
+    if (currentRecord.attributes.length === 0) {
+      createAttributeRow('', '');
+    } else {
+      currentRecord.attributes.forEach(([key, value]) => createAttributeRow(key, value));
+    }
+
+    contentInput.value = currentRecord.contentText;
   }
 
   function renderValidation(messages, parseError) {
     validationList.innerHTML = '';
+
     if (parseError) {
-      const item = document.createElement('li');
-      item.textContent = `Parse error: ${parseError}`;
-      validationList.appendChild(item);
+      const parseItem = document.createElement('li');
+      parseItem.textContent = `Parse error: ${parseError}`;
+      validationList.appendChild(parseItem);
     }
 
-    if (!messages || messages.length === 0) {
+    if (!Array.isArray(messages) || messages.length === 0) {
       const ok = document.createElement('li');
       ok.textContent = 'No validation errors.';
       validationList.appendChild(ok);
       return;
     }
 
-    for (const message of messages) {
+    messages.forEach((message) => {
       const item = document.createElement('li');
       item.textContent = message;
       validationList.appendChild(item);
-    }
+    });
   }
+
+  recordSelect.addEventListener('change', () => {
+    readFormToState();
+    state.selectedIndex = Number(recordSelect.value || 0);
+    renderCurrentRecord();
+  });
+
+  addRecordButton.addEventListener('click', () => {
+    readFormToState();
+    state.records.push(createDefaultRecord());
+    state.selectedIndex = state.records.length - 1;
+    renderRecordOptions();
+    renderCurrentRecord();
+  });
+
+  removeRecordButton.addEventListener('click', () => {
+    if (state.records.length <= 1) {
+      return;
+    }
+
+    readFormToState();
+    state.records.splice(state.selectedIndex, 1);
+    if (state.selectedIndex >= state.records.length) {
+      state.selectedIndex = state.records.length - 1;
+    }
+
+    renderRecordOptions();
+    renderCurrentRecord();
+  });
 
   addAttributeButton.addEventListener('click', () => {
     createAttributeRow('', '');
   });
 
-  [versionInput, idInput, entryDateInput, lineageStartDateInput, contentInput].forEach((element) => {
-    element.addEventListener('input', readFormToState);
-  });
+  contentInput.addEventListener('input', readFormToState);
 
   validateButton.addEventListener('click', () => {
     readFormToState();
-    vscode.postMessage({ type: 'validate', payload: state.flowFile });
+    vscode.postMessage({ type: 'validate', payload: state.records });
   });
 
   saveButton.addEventListener('click', () => {
     readFormToState();
-    vscode.postMessage({ type: 'save', payload: state.flowFile });
+    vscode.postMessage({ type: 'save', payload: state.records });
   });
 
   window.addEventListener('message', (event) => {
     const message = event.data;
-
     switch (message.type) {
       case 'update':
-        state.flowFile = message.payload;
+        state.records = normalizeRecords(message.payload);
+        if (state.selectedIndex >= state.records.length) {
+          state.selectedIndex = state.records.length - 1;
+        }
+        if (state.selectedIndex < 0) {
+          state.selectedIndex = 0;
+        }
         schemaHint.textContent = message.schemaHint || '';
-        render();
+        renderRecordOptions();
+        renderCurrentRecord();
         renderValidation(message.validation, message.parseError);
         break;
       case 'validation':

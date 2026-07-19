@@ -15,22 +15,24 @@ main {
   margin: 0 auto;
 }
 
-.grid {
+.records-toolbar {
   display: grid;
-  grid-template-columns: 180px 1fr;
+  grid-template-columns: auto minmax(140px, 220px) auto auto;
   gap: 0.5rem;
   align-items: center;
+  margin-bottom: 1rem;
 }
 
 input,
 textarea,
-button {
+button,
+select {
   font: inherit;
 }
 
 textarea,
 input[type='text'],
-input[type='number'] {
+select {
   width: 100%;
   box-sizing: border-box;
   padding: 0.25rem 0.5rem;
