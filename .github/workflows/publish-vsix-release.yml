@@ -1,0 +1,46 @@
+name: Publish VSIX to GitHub Releases
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
+        run: npm test
+
+      - name: Package VSIX
+        run: npx @vscode/vsce package --no-dependencies
+
+      - name: Set release metadata
+        id: release_meta
+        run: |
+          echo "tag_name=main-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "release_name=VSIX main ${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release and upload VSIX
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_meta.outputs.tag_name }}
+          name: ${{ steps.release_meta.outputs.release_name }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: "*.vsix"
