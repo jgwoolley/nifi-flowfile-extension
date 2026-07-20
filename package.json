@@ -51,7 +51,7 @@
   "type": "commonjs",
   "devDependencies": {
     "@types/node": "^26.1.1",
-    "@types/vscode": "^1.125.0",
+    "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
     "eslint": "^8.57.1",
