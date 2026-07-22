@@ -3,7 +3,7 @@
   "displayName": "NiFi FlowFile v3 Editor",
   "description": "VS Code custom editor for .flowfile and .flowfile-v3 documents",
   "version": "0.0.1",
-  "publisher": "jgwoolley",
+  "publisher": "nf3t",
   "engines": {
     "vscode": "^1.90.0"
   },
