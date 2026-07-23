@@ -1,2 +1,6 @@
 #!/bin/bash
-npm ci && npm test && npx @vscode/vsce package --no-dependencies
+npm install
+npm run compile
+npm run lint
+npm test
+npx @vscode/vsce package --no-dependencies

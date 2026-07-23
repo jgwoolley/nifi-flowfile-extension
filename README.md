@@ -1,15 +1,12 @@
 # NiFi FlowFile v3 VS Code Extension
 
+![The FlowFile v3 Editor is pictured, with FlowFile Attributes / content pictured for multiple FlowFiles](media/Screenshot01.png "The FlowFile v3 Editor")
+
 This extension adds a custom editor for FlowFile v3 documents and opens `*.flowfile` and `*.flowfile-v3` files in a structured editor instead of plain text.
 
-## Project structure
+It also features a command for creating FlowFile v3
 
-- `package.json`: extension manifest, custom editor contribution, activation events, scripts
-- `src/extension.ts`: activation logic, binary parser/serializer, and custom editor provider
-- `media/editor.js`: webview UI logic for editing multiple FlowFile records
-- `media/editor.css`: editor styling
-- `tsconfig.json`: TypeScript build config
-- `.eslintrc.cjs`: lint rules for TypeScript source
+![Shows the command "NiFi: Create Empty FlowFile v3"](media/Screenshot02.png "FlowFile v3 creation command")
 
 ## FlowFile v3 binary format support
 
@@ -40,10 +37,9 @@ npm install
 npm run compile
 npm run lint
 npm test
+npx @vscode/vsce package --no-dependencies
 ```
 
 ## TODO
 
-- For inner flowfile include file name instead of flowfile by index
-- Add screenshots
-- Add actual light and dark mode
+- Add actual light and dark mode icons

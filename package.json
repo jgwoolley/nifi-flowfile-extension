@@ -2,7 +2,7 @@
   "name": "nifi-flowfile-extension",
   "displayName": "NiFi FlowFile v3 Editor",
   "description": "VS Code custom editor for .flowfile and .flowfile-v3 documents",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "nf3t",
   "engines": {
     "vscode": "^1.90.0"

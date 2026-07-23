@@ -27,10 +27,20 @@ export function activate(context: vscode.ExtensionContext): void {
   // Register the command to create a new, empty FlowFile
   context.subscriptions.push(
     vscode.commands.registerCommand('nifiFlowFile.createEmptyFlowFile', async () => {
+      const contentFiles = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectMany: true,
+      })
+
+      if(!contentFiles) {
+        return;
+      }
+
       // Prompt the user for a location to save the new file
       const uri = await vscode.window.showSaveDialog({
         title: 'Create Empty FlowFile v3',
         saveLabel: 'Create',
+
         filters: {
           'FlowFile': ['.flowfile-v3', '.flowfile', '.pkg', '*'] // Adjust extensions to whatever your users typically use
         }
@@ -41,8 +51,44 @@ export function activate(context: vscode.ExtensionContext): void {
       }
 
       try {
-        // Generate a default record and serialize it to bytes
-        const defaultRecords = [createDefaultRecord()];
+        const defaultRecords = await Promise.all(
+          contentFiles.map(async (fileUri) => {
+
+            // Get file metadata (size, creation time, modified time)
+            const stat = await vscode.workspace.fs.stat(fileUri);
+
+            // Extract filename and path from the URI
+            // Note: splitting by '/' works for standard URI paths (even on Windows)
+
+            const pathSegments = fileUri.path.split('/');
+            const filename = pathSegments.pop() || 'unknown';
+            const path = pathSegments.join('/') || '/';
+
+            // Read the file metadata
+            // https://github.com/apache/nifi/blob/main/nifi-api/src/main/java/org/apache/nifi/flowfile/attributes/CoreAttributes.java
+            const attributes: FlowFileAttribute[] = [
+              ['filename', filename],
+              ['absolute.path', fileUri.fsPath],
+              ['path', path],
+              ['size', stat.size.toString()],
+              ['file.creationTime', new Date(stat.ctime).toISOString()],
+              ['file.lastModifiedTime', new Date(stat.mtime).toISOString()],
+            ];
+
+            // Read the file as a Uint8Array
+            const fileData = await vscode.workspace.fs.readFile(fileUri);
+            
+            // Convert the Uint8Array to a UTF-8 string
+            const contentText = new TextDecoder().decode(fileData);
+
+            const result: FlowFileRecord = {
+              attributes: attributes,
+              contentText: contentText,
+            };
+
+            return result;
+          })
+        );
         const bytes = serializeFlowFileStream(defaultRecords);
 
         // Write the binary data to the selected file

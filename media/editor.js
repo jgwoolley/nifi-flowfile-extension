@@ -53,11 +53,13 @@
   function renderRecordOptions() {
     recordSelect.innerHTML = '';
 
-    state.records.forEach((_, index) => {
+    state.records.forEach((record, index) => {
       const option = document.createElement('option');
       option.value = String(index);
-      // TODO: Get file name instead
-      option.textContent = `Record ${index + 1}`;
+
+      const filenameAttr = record.attributes.find(attr => attr[0] === 'filename');
+      option.textContent = filenameAttr ? filenameAttr[1] : `Record ${index + 1}`;
+      
       recordSelect.appendChild(option);
     });
 
