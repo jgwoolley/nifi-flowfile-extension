@@ -56,6 +56,7 @@
     state.records.forEach((_, index) => {
       const option = document.createElement('option');
       option.value = String(index);
+      // TODO: Get file name instead
       option.textContent = `Record ${index + 1}`;
       recordSelect.appendChild(option);
     });

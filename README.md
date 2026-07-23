@@ -41,3 +41,9 @@ npm run compile
 npm run lint
 npm test
 ```
+
+## TODO
+
+- For inner flowfile include file name instead of flowfile by index
+- Add screenshots
+- Add actual light and dark mode

@@ -2,19 +2,46 @@
   "name": "nifi-flowfile-extension",
   "displayName": "NiFi FlowFile v3 Editor",
   "description": "VS Code custom editor for .flowfile and .flowfile-v3 documents",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "nf3t",
   "engines": {
     "vscode": "^1.90.0"
   },
+  "license": "Apache-2.0",
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onCustomEditor:nifiFlowFile.flowFileV3Editor"
+  "keywords": [
+    "nifi",
+    "flowfile",
+    "custom-editor"
   ],
+  "pricing": "Free",
+  "icon": "media/icon.png",
+  "workspaces": ["ui", "workspaces"],
   "main": "./dist/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "nifi-flowfile",
+        "aliases": ["NiFi FlowFile"],
+        "extensions": [
+          ".flowfile",
+          ".flowfile-v3"
+        ],
+        "icon": {
+          "light": "./media/flowfile-light.svg",
+          "dark": "./media/flowfile-dark.svg"
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "nifiFlowFile.createEmptyFlowFile",
+        "title": "NiFi: Create Empty FlowFile v3",
+        "category": "FlowFile"
+      }
+    ],
     "customEditors": [
       {
         "viewType": "nifiFlowFile.flowFileV3Editor",
@@ -41,13 +68,7 @@
     "type": "git",
     "url": "https://github.com/jgwoolley/nifi-flowfile-extension.git"
   },
-  "keywords": [
-    "nifi",
-    "flowfile",
-    "custom-editor"
-  ],
   "author": "",
-  "license": "Apache-2.0",
   "type": "commonjs",
   "devDependencies": {
     "@types/node": "^26.1.1",

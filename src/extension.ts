@@ -24,6 +24,40 @@ export function activate(context: vscode.ExtensionContext): void {
       { webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false }
     )
   );
+  // Register the command to create a new, empty FlowFile
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nifiFlowFile.createEmptyFlowFile', async () => {
+      // Prompt the user for a location to save the new file
+      const uri = await vscode.window.showSaveDialog({
+        title: 'Create Empty FlowFile v3',
+        saveLabel: 'Create',
+        filters: {
+          'FlowFile': ['.flowfile-v3', '.flowfile', '.pkg', '*'] // Adjust extensions to whatever your users typically use
+        }
+      });
+
+      if (!uri) {
+        return; // User canceled the dialog
+      }
+
+      try {
+        // Generate a default record and serialize it to bytes
+        const defaultRecords = [createDefaultRecord()];
+        const bytes = serializeFlowFileStream(defaultRecords);
+
+        // Write the binary data to the selected file
+        await vscode.workspace.fs.writeFile(uri, bytes);
+
+        // Open the newly created file using your custom editor
+        await vscode.commands.executeCommand('vscode.openWith', uri, CUSTOM_EDITOR_VIEW_TYPE);
+        
+        vscode.window.showInformationMessage('Empty FlowFile created successfully.');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        vscode.window.showErrorMessage(`Failed to create FlowFile: ${errorMessage}`);
+      }
+    })
+  );
 }
 
 export function deactivate(): void {
