@@ -43,3 +43,4 @@ npx @vscode/vsce package --no-dependencies
 ## TODO
 
 - Add actual light and dark mode icons
+- Move to using actual files in `package.json` instead of .vscode ignore
