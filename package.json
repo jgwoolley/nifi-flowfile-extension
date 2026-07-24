@@ -2,7 +2,7 @@
   "name": "nifi-flowfile-extension",
   "displayName": "NiFi FlowFile v3 Editor",
   "description": "VS Code custom editor for .flowfile and .flowfile-v3 documents",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "nf3t",
   "engines": {
     "vscode": "^1.90.0"
@@ -18,7 +18,10 @@
   ],
   "pricing": "Free",
   "icon": "media/icon.png",
-  "workspaces": ["ui", "workspaces"],
+  "workspaces": [
+    "ui",
+    "workspaces"
+  ],
   "main": "./dist/extension.js",
   "files": [
     "dist/**",
@@ -31,7 +34,9 @@
     "languages": [
       {
         "id": "nifi-flowfile",
-        "aliases": ["NiFi FlowFile"],
+        "aliases": [
+          "NiFi FlowFile"
+        ],
         "extensions": [
           ".flowfile",
           ".flowfile-v3"
@@ -66,8 +71,7 @@
     ]
   },
   "scripts": {
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "compile": "tsc -p ./ && tsc -p ./tsconfig.webview.json",
     "lint": "eslint src --ext ts",
     "test": "npm run compile"
   },
@@ -83,6 +87,7 @@
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
     "eslint": "^8.57.1",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "undici-types": "^8.9.0"
   }
 }

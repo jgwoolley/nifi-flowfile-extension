@@ -1,39 +1,70 @@
+// Define types for VS Code Webview API
+interface VsCodeApi {
+  postMessage(message: unknown): void;
+  getState(): unknown;
+  setState(state: unknown): void;
+}
+
+declare function acquireVsCodeApi(): VsCodeApi;
+
+// Domain Types
+type AttributePair = [string, string];
+
+interface FlowFileRecord {
+  attributes: AttributePair[];
+  contentText: string;
+}
+
+interface AppState {
+  records: FlowFileRecord[];
+  selectedIndex: number;
+}
+
+interface IncomingMessage {
+  type: 'update' | 'validation';
+  payload?: unknown;
+  schemaHint?: string;
+  validation?: string[];
+  parseError?: string;
+}
+
 (function () {
   const vscode = acquireVsCodeApi();
 
-  const state = {
+  const state: AppState = {
     records: [createDefaultRecord()],
     selectedIndex: 0
   };
 
-  const schemaHint = document.getElementById('schema-hint');
-  const recordSelect = document.getElementById('record-select');
-  const addRecordButton = document.getElementById('add-record');
-  const removeRecordButton = document.getElementById('remove-record');
-  const attributesContainer = document.getElementById('attributes');
-  const addAttributeButton = document.getElementById('add-attribute');
-  const contentInput = document.getElementById('content');
-  const validateButton = document.getElementById('validate');
-  const saveButton = document.getElementById('save');
-  const validationList = document.getElementById('validation-list');
+  // DOM Elements with explicit type castings
+  const schemaHint = document.getElementById('schema-hint') as HTMLDivElement;
+  const recordSelect = document.getElementById('record-select') as HTMLSelectElement;
+  const addRecordButton = document.getElementById('add-record') as HTMLButtonElement;
+  const removeRecordButton = document.getElementById('remove-record') as HTMLButtonElement;
+  const attributesContainer = document.getElementById('attributes') as HTMLDivElement;
+  const addAttributeButton = document.getElementById('add-attribute') as HTMLButtonElement;
+  const contentInput = document.getElementById('content') as HTMLTextAreaElement;
+  const validateButton = document.getElementById('validate') as HTMLButtonElement;
+  const saveButton = document.getElementById('save') as HTMLButtonElement;
+  const validationList = document.getElementById('validation-list') as HTMLUListElement;
 
-  function createDefaultRecord() {
+  function createDefaultRecord(): FlowFileRecord {
     return {
       attributes: [['filename', 'flowfile.txt']],
       contentText: ''
     };
   }
 
-  function normalizeRecords(records) {
+  function normalizeRecords(records: unknown): FlowFileRecord[] {
     if (!Array.isArray(records) || records.length === 0) {
       return [createDefaultRecord()];
     }
 
-    return records.map((record) => {
-      const attributes = Array.isArray(record.attributes)
+    return records.map((record: any) => {
+      const attributes: AttributePair[] = Array.isArray(record.attributes)
         ? record.attributes
-            .filter((attribute) => Array.isArray(attribute) && attribute.length >= 2)
-            .map((attribute) => [String(attribute[0] ?? ''), String(attribute[1] ?? '')])
+            .filter((attribute: unknown) => Array.isArray(attribute) && attribute.length >= 2)
+            .map((attribute: any): AttributePair => [String(attribute[0] ?? ''), String(attribute[1] ?? '')])
         : [];
 
       return {
@@ -43,14 +74,14 @@
     });
   }
 
-  function getCurrentRecord() {
+  function getCurrentRecord(): FlowFileRecord {
     if (!state.records[state.selectedIndex]) {
       state.records[state.selectedIndex] = createDefaultRecord();
     }
     return state.records[state.selectedIndex];
   }
 
-  function renderRecordOptions() {
+  function renderRecordOptions(): void {
     recordSelect.innerHTML = '';
 
     state.records.forEach((record, index) => {
@@ -75,7 +106,7 @@
     removeRecordButton.disabled = state.records.length <= 1;
   }
 
-  function createAttributeRow(key, value) {
+  function createAttributeRow(key: string, value: string): void {
     const row = document.createElement('div');
     row.className = 'attribute-row';
 
@@ -104,14 +135,14 @@
     attributesContainer.appendChild(row);
   }
 
-  function rebuildAttributesFromDom() {
+  function rebuildAttributesFromDom(): void {
     const currentRecord = getCurrentRecord();
-    const attributes = [];
+    const attributes: AttributePair[] = [];
 
     attributesContainer.querySelectorAll('.attribute-row').forEach((row) => {
       const inputs = row.querySelectorAll('input');
-      const key = inputs[0].value.trim();
-      const value = inputs[1].value;
+      const key = (inputs[0] as HTMLInputElement).value.trim();
+      const value = (inputs[1] as HTMLInputElement).value;
       if (key.length > 0) {
         attributes.push([key, value]);
       }
@@ -120,13 +151,13 @@
     currentRecord.attributes = attributes;
   }
 
-  function readFormToState() {
+  function readFormToState(): void {
     const currentRecord = getCurrentRecord();
     currentRecord.contentText = contentInput.value;
     rebuildAttributesFromDom();
   }
 
-  function renderCurrentRecord() {
+  function renderCurrentRecord(): void {
     const currentRecord = getCurrentRecord();
     attributesContainer.innerHTML = '';
 
@@ -139,7 +170,7 @@
     contentInput.value = currentRecord.contentText;
   }
 
-  function renderValidation(messages, parseError) {
+  function renderValidation(messages?: string[], parseError?: string): void {
     validationList.innerHTML = '';
 
     if (parseError) {
@@ -149,9 +180,11 @@
     }
 
     if (!Array.isArray(messages) || messages.length === 0) {
-      const ok = document.createElement('li');
-      ok.textContent = 'No validation errors.';
-      validationList.appendChild(ok);
+      if (!parseError) {
+        const ok = document.createElement('li');
+        ok.textContent = 'No validation errors.';
+        validationList.appendChild(ok);
+      }
       return;
     }
 
@@ -207,7 +240,7 @@
     vscode.postMessage({ type: 'save', payload: state.records });
   });
 
-  window.addEventListener('message', (event) => {
+  window.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {
     const message = event.data;
     switch (message.type) {
       case 'update':

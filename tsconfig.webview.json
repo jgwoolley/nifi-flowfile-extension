@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "module": "es6",
+    "target": "es2022",
+    "lib": ["es2022", "dom"],
+    "sourceMap": true,
+    "strict": true,
+    "outDir": "media"
+  },
+  "include": ["src/editor.ts"]
+}
