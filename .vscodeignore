@@ -1,0 +1,10 @@
+# Exclude source and build configuration files
+.vscode/
+.github/
+src/
+tsconfig.json
+*.sh
+.gitignore
+
+# Exclude test or sample assets not needed by the runtime extension
+*.flowfile
