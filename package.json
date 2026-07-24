@@ -20,6 +20,13 @@
   "icon": "media/icon.png",
   "workspaces": ["ui", "workspaces"],
   "main": "./dist/extension.js",
+  "files": [
+    "dist/**",
+    "media/**",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ],
   "contributes": {
     "languages": [
       {

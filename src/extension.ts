@@ -53,23 +53,30 @@ export function activate(context: vscode.ExtensionContext): void {
       try {
         const defaultRecords = await Promise.all(
           contentFiles.map(async (fileUri) => {
-
             // Get file metadata (size, creation time, modified time)
             const stat = await vscode.workspace.fs.stat(fileUri);
 
-            // Extract filename and path from the URI
-            // Note: splitting by '/' works for standard URI paths (even on Windows)
+            // Extract absolute path directory (web-compatible, excluding filename)
+            const absolutePathSegments = fileUri.path.split('/');
+            absolutePathSegments.pop(); // Remove filename
+            const absolutePath = absolutePathSegments.join('/') || '/';
 
-            const pathSegments = fileUri.path.split('/');
-            const filename = pathSegments.pop() || 'unknown';
-            const path = pathSegments.join('/') || '/';
+            // Extract relative path directory
+            const relativePath = vscode.workspace.asRelativePath(fileUri);
+            const relativePathSegments = relativePath.split('/');
+            const filename = relativePathSegments.pop() || 'unknown';
+            const relativeDirPath = relativePathSegments.join('/') || '/';
 
             // Read the file metadata
             // https://github.com/apache/nifi/blob/main/nifi-api/src/main/java/org/apache/nifi/flowfile/attributes/CoreAttributes.java
             const attributes: FlowFileAttribute[] = [
+              // The filename of the FlowFile. The filename should not contain any directory structure.
               ['filename', filename],
-              ['absolute.path', fileUri.fsPath],
-              ['path', path],
+              // The FlowFile’s path indicates the relative directory to which a FlowFile belongs and does not contain the filename.
+              ['path', relativeDirPath],
+              // The FlowFile’s absolute path indicates the absolute directory to which a FlowFile belongs and does not contain the filename.
+              ['absolute.path', absolutePath],
+
               ['size', stat.size.toString()],
               ['file.creationTime', new Date(stat.ctime).toISOString()],
               ['file.lastModifiedTime', new Date(stat.mtime).toISOString()],
