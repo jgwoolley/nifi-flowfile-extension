@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
+import * as os from 'os';
+import * as path from 'path';
 import { FlowFileAttribute, FlowFileRecord } from './schemas';
 import { cloneRecords, createDefaultRecord, parseFlowFileStream, serializeFlowFileStream, validateRecords } from './utils';
-import { deserialize } from 'node:v8';
 
 const CUSTOM_EDITOR_VIEW_TYPE = 'nifiFlowFile.flowFileV3Editor';
 
@@ -41,12 +42,9 @@ async function readUriAsFlowFile(fileUri: vscode.Uri) {
   // Read the file as a Uint8Array
   const fileData = await vscode.workspace.fs.readFile(fileUri);
 
-  // Convert the Uint8Array to a UTF-8 string
-  const contentText = new TextDecoder().decode(fileData);
-
   const result: FlowFileRecord = {
     attributes: await attributes,
-    contentText: contentText,
+    contentBytes: fileData,
   };
 
   return result;
@@ -244,19 +242,27 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
     });
 
     webviewPanel.webview.onDidReceiveMessage(async (message) => {
-      switch (message.type) {
+      const incoming = message as {
+        type?: unknown;
+        payload?: unknown;
+        recordIndex?: unknown;
+      };
+
+      const messageType = typeof incoming.type === 'string' ? incoming.type : '';
+
+      switch (messageType) {
         case 'requestData': {
           this.postUpdate(webviewPanel, document);
           break;
         }
         case 'validate': {
-          const records = normalizeIncomingRecords(message.payload);
+          const records = normalizeIncomingRecords(incoming.payload, document.records);
           const validation = validateRecords(records);
           webviewPanel.webview.postMessage({ type: 'validation', validation });
           break;
         }
         case 'save': {
-          const records = normalizeIncomingRecords(message.payload);
+          const records = normalizeIncomingRecords(incoming.payload, document.records);
           const validation = validateRecords(records);
           webviewPanel.webview.postMessage({ type: 'validation', validation });
           if (validation.length > 0) {
@@ -269,6 +275,15 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
           await this.saveCustomDocument(document, new vscode.CancellationTokenSource().token);
           this.postUpdate(webviewPanel, document);
           void vscode.window.showInformationMessage(`Saved ${vscode.workspace.asRelativePath(document.uri)}`);
+          break;
+        }
+        case 'openContent': {
+          const recordIndex = Number(incoming.recordIndex);
+          if (!Number.isInteger(recordIndex)) {
+            break;
+          }
+
+          await this.openRecordContent(document, recordIndex);
           break;
         }
         default:
@@ -345,12 +360,34 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
   private postUpdate(webviewPanel: vscode.WebviewPanel, document: FlowFileBinaryDocument): void {
     webviewPanel.webview.postMessage({
       type: 'update',
-      payload: document.records,
+      payload: document.records.map((record, index) => ({
+        attributes: record.attributes,
+        contentSize: record.contentBytes.length,
+        filename: getRecordFilename(record, index),
+        sourceIndex: index
+      })),
       validation: validateRecords(document.records),
       parseError: document.parseError,
       schemaHint:
-        'FlowFile v3 binary format: NiFiFF3 header + attributes + 8-byte content length + content bytes; multiple records are supported in one file. Content editing assumes UTF-8 text.'
+        'FlowFile v3 binary format: NiFiFF3 header + attributes + 8-byte content length + content bytes; multiple records are supported. Content remains binary and can be opened externally per record.'
     });
+  }
+
+  private async openRecordContent(document: FlowFileBinaryDocument, recordIndex: number): Promise<void> {
+    const record = document.records[recordIndex];
+    if (!record) {
+      return;
+    }
+
+    const filename = getRecordFilename(record, recordIndex);
+    const tempDir = path.join(os.tmpdir(), 'nifi-flowfile-extension-content');
+    const uniqueId = `${Date.now()}-${Math.floor(Math.random() * 1_000_000_000)}`;
+    const contentPath = path.join(tempDir, `${uniqueId}-${filename}`);
+    const contentUri = vscode.Uri.file(contentPath);
+
+    await vscode.workspace.fs.createDirectory(vscode.Uri.file(tempDir));
+    await vscode.workspace.fs.writeFile(contentUri, record.contentBytes);
+    await vscode.commands.executeCommand('vscode.open', contentUri, vscode.ViewColumn.Beside);
   }
 
   private addWebview(document: FlowFileBinaryDocument, webviewPanel: vscode.WebviewPanel): void {
@@ -406,8 +443,9 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
     </section>
 
     <section>
-      <h2>Content (UTF-8 text)</h2>
-      <textarea id="content" rows="10"></textarea>
+      <h2>Content</h2>
+      <p id="content-summary"></p>
+      <button id="open-content" type="button">Open Content</button>
     </section>
 
     <section>
@@ -429,18 +467,16 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
 
 type FlowFileRecordPayload = {
   attributes?: unknown;
-  contentText?: unknown;
+  sourceIndex?: unknown;
 };
 
-function normalizeIncomingRecords(payload: unknown): FlowFileRecord[] {
+function normalizeIncomingRecords(payload: unknown, previousRecords: FlowFileRecord[]): FlowFileRecord[] {
   if (!Array.isArray(payload)) {
-    return [createDefaultRecord()];
+    return previousRecords.length > 0 ? cloneRecords(previousRecords) : [createDefaultRecord()];
   }
 
   const records: FlowFileRecord[] = payload.map((record): FlowFileRecord => {
     const candidate = (record ?? {}) as FlowFileRecordPayload;
-    const contentText =
-      typeof candidate.contentText === 'string' ? candidate.contentText : '';
 
     const attributes =
       Array.isArray(candidate.attributes)
@@ -457,11 +493,24 @@ function normalizeIncomingRecords(payload: unknown): FlowFileRecord[] {
 
     return {
       attributes,
-      contentText
+      contentBytes: new Uint8Array()
     };
   });
 
+  records.forEach((record, index) => {
+    const candidate = (payload[index] ?? {}) as FlowFileRecordPayload;
+    const sourceIndex = Number(candidate.sourceIndex);
+    const previousRecord = Number.isInteger(sourceIndex) ? previousRecords[sourceIndex] : undefined;
+    record.contentBytes = previousRecord?.contentBytes?.slice() ?? new Uint8Array();
+  });
+
   return records.length > 0 ? records : [createDefaultRecord()];
+}
+
+function getRecordFilename(record: FlowFileRecord, index: number): string {
+  const filename = record.attributes.find(([key]) => key === 'filename')?.[1]?.trim();
+  const safeFilename = filename ? path.basename(filename) : '';
+  return safeFilename.length > 0 ? safeFilename : `record-${index + 1}.bin`;
 }
 
 function createNonce(): string {
