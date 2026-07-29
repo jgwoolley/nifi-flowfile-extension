@@ -1,3 +1,5 @@
+import { FlowFileRecord, FlowFileAttribute } from "./schemas";
+
 // Define types for VS Code Webview API
 interface VsCodeApi {
   postMessage(message: unknown): void;
@@ -7,13 +9,7 @@ interface VsCodeApi {
 
 declare function acquireVsCodeApi(): VsCodeApi;
 
-// Domain Types
-type AttributePair = [string, string];
 
-interface FlowFileRecord {
-  attributes: AttributePair[];
-  contentText: string;
-}
 
 interface AppState {
   records: FlowFileRecord[];
@@ -61,10 +57,10 @@ interface IncomingMessage {
     }
 
     return records.map((record: any) => {
-      const attributes: AttributePair[] = Array.isArray(record.attributes)
+      const attributes: FlowFileAttribute[] = Array.isArray(record.attributes)
         ? record.attributes
             .filter((attribute: unknown) => Array.isArray(attribute) && attribute.length >= 2)
-            .map((attribute: any): AttributePair => [String(attribute[0] ?? ''), String(attribute[1] ?? '')])
+            .map((attribute: any): FlowFileAttribute => [String(attribute[0] ?? ''), String(attribute[1] ?? '')])
         : [];
 
       return {
@@ -137,7 +133,7 @@ interface IncomingMessage {
 
   function rebuildAttributesFromDom(): void {
     const currentRecord = getCurrentRecord();
-    const attributes: AttributePair[] = [];
+    const attributes: FlowFileAttribute[] = [];
 
     attributesContainer.querySelectorAll('.attribute-row').forEach((row) => {
       const inputs = row.querySelectorAll('input');

@@ -52,6 +52,11 @@
         "command": "nifiFlowFile.createEmptyFlowFile",
         "title": "NiFi: Create Empty FlowFile v3",
         "category": "FlowFile"
+      },
+      {
+        "command": "nifiFlowFile.mergeFlowFiles",
+        "title": "NiFi: Merge FlowFiles v3",
+        "category": "FlowFile"
       }
     ],
     "customEditors": [
