@@ -286,6 +286,22 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
           await this.openRecordContent(document, recordIndex);
           break;
         }
+        case 'addFlowFiles': {
+          const currentRecords = normalizeIncomingRecords(incoming.payload, document.records);
+          const selectedFiles = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectMany: true,
+          });
+
+          if (!selectedFiles || selectedFiles.length === 0) {
+            break;
+          }
+
+          const importedRecords = await Promise.all(selectedFiles.map(readUriAsFlowFile));
+          document.setRecords([...currentRecords, ...importedRecords]);
+          this.refreshAllWebviews(document);
+          break;
+        }
         default:
           break;
       }
@@ -360,12 +376,7 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
   private postUpdate(webviewPanel: vscode.WebviewPanel, document: FlowFileBinaryDocument): void {
     webviewPanel.webview.postMessage({
       type: 'update',
-      payload: document.records.map((record, index) => ({
-        attributes: record.attributes,
-        contentSize: record.contentBytes.length,
-        filename: getRecordFilename(record, index),
-        sourceIndex: index
-      })),
+      payload: toWebviewPayload(document.records),
       validation: validateRecords(document.records),
       parseError: document.parseError,
       schemaHint:
@@ -430,10 +441,10 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
     <p id="schema-hint"></p>
 
     <section class="records-toolbar">
-      <label for="record-select">Record</label>
+      <label for="record-select">FlowFile</label>
       <select id="record-select"></select>
-      <button id="add-record" type="button">Add Record</button>
-      <button id="remove-record" type="button">Remove Record</button>
+      <button id="add-record" type="button">Add FlowFile</button>
+      <button id="remove-record" type="button">Remove FlowFile</button>
     </section>
 
     <section>
@@ -511,6 +522,15 @@ function getRecordFilename(record: FlowFileRecord, index: number): string {
   const filename = record.attributes.find(([key]) => key === 'filename')?.[1]?.trim();
   const safeFilename = filename ? path.basename(filename) : '';
   return safeFilename.length > 0 ? safeFilename : `record-${index + 1}.bin`;
+}
+
+function toWebviewPayload(records: FlowFileRecord[]) {
+  return records.map((record, index) => ({
+    attributes: record.attributes,
+    contentSize: record.contentBytes.length,
+    filename: getRecordFilename(record, index),
+    sourceIndex: index
+  }));
 }
 
 function createNonce(): string {

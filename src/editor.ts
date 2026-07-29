@@ -102,7 +102,7 @@ type FlowFileRecordViewModel = {
       option.value = String(index);
 
       const filenameAttr = record.attributes.find(attr => attr[0] === 'filename');
-      option.textContent = filenameAttr ? filenameAttr[1] : `Record ${index + 1}`;
+      option.textContent = filenameAttr ? filenameAttr[1] : `FlowFile ${index + 1}`;
       
       recordSelect.appendChild(option);
     });
@@ -214,10 +214,10 @@ type FlowFileRecordViewModel = {
 
   addRecordButton.addEventListener('click', () => {
     readFormToState();
-    state.records.push(createDefaultRecord());
-    state.selectedIndex = state.records.length - 1;
-    renderRecordOptions();
-    renderCurrentRecord();
+    vscode.postMessage({
+      type: 'addFlowFiles',
+      payload: state.records.map((record) => ({ attributes: record.attributes, sourceIndex: record.sourceIndex }))
+    });
   });
 
   removeRecordButton.addEventListener('click', () => {
