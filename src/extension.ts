@@ -50,7 +50,7 @@ async function readUriAsFlowFile(fileUri: vscode.Uri) {
   return result;
 }
 
-async function createEmptyFlowFile() {
+async function createFlowFile() {
   const contentFiles = await vscode.window.showOpenDialog({
     canSelectFiles: true,
     canSelectMany: true,
@@ -99,7 +99,7 @@ async function createEmptyFlowFile() {
     // Open the newly created file using your custom editor
     await vscode.commands.executeCommand('vscode.openWith', uri, CUSTOM_EDITOR_VIEW_TYPE);
 
-    vscode.window.showInformationMessage('Empty FlowFile created successfully.');
+    vscode.window.showInformationMessage('FlowFile created successfully.');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     vscode.window.showErrorMessage(`Failed to create FlowFile: ${errorMessage}`);
@@ -170,7 +170,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Register the command to create a new, empty FlowFile
   context.subscriptions.push(
-    vscode.commands.registerCommand('nifiFlowFile.createEmptyFlowFile', createEmptyFlowFile)
+    vscode.commands.registerCommand('nifiFlowFile.createFlowFile', createFlowFile)
   );
 
   // Register the command to create a new, empty FlowFile

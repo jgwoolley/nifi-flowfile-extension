@@ -6,7 +6,7 @@ This extension adds a custom editor for FlowFile v3 documents and opens `*.flowf
 
 It also features a command for creating FlowFile v3
 
-![Shows the command "NiFi: Create Empty FlowFile v3"](media/Screenshot02.png "FlowFile v3 creation command")
+![Shows the command "NiFi: Create FlowFile v3"](media/Screenshot02.png "FlowFile v3 creation command")
 
 ## FlowFile v3 binary format support
 

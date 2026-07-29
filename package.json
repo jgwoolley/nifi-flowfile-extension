@@ -49,8 +49,8 @@
     ],
     "commands": [
       {
-        "command": "nifiFlowFile.createEmptyFlowFile",
-        "title": "NiFi: Create Empty FlowFile v3",
+        "command": "nifiFlowFile.createFlowFile",
+        "title": "NiFi: Create FlowFile v3",
         "category": "FlowFile"
       },
       {
