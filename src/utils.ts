@@ -11,7 +11,7 @@ export type ParseResult = {
 export function createDefaultRecord(): FlowFileRecord {
   return {
     attributes: [['filename', 'flowfile.txt']],
-    contentText: ''
+    contentBytes: new Uint8Array()
   };
 }
 
@@ -19,7 +19,7 @@ export function createDefaultRecord(): FlowFileRecord {
 export function cloneRecords(records: FlowFileRecord[]): FlowFileRecord[] {
   return records.map((record) => ({
     attributes: record.attributes.map(([key, value]) => [key, value]),
-    contentText: record.contentText
+    contentBytes: record.contentBytes.slice()
   }));
 }
 
@@ -140,7 +140,6 @@ export function parseFlowFileStream(bytes: Uint8Array): ParseResult {
   }
 
   const cursor = new ByteCursor(bytes);
-  const decoder = new TextDecoder();
   const records: FlowFileRecord[] = [];
 
   try {
@@ -161,7 +160,7 @@ export function parseFlowFileStream(bytes: Uint8Array): ParseResult {
       const contentBytes = cursor.readBytes(contentLength);
       records.push({
         attributes,
-        contentText: decoder.decode(contentBytes)
+        contentBytes
       });
     }
 
@@ -177,7 +176,6 @@ export function parseFlowFileStream(bytes: Uint8Array): ParseResult {
 }
 
 export function serializeFlowFileStream(records: FlowFileRecord[]): Uint8Array {
-  const encoder = new TextEncoder();
   const output: number[] = [];
 
   for (const record of records) {
@@ -189,7 +187,7 @@ export function serializeFlowFileStream(records: FlowFileRecord[]): Uint8Array {
       writeString(output, value);
     }
 
-    const contentBytes = encoder.encode(record.contentText);
+    const contentBytes = record.contentBytes;
     writeLong(output, contentBytes.length);
     for (const byte of contentBytes) {
       output.push(byte);

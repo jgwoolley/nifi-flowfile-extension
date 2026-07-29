@@ -11,8 +11,12 @@ declare function acquireVsCodeApi(): VsCodeApi;
 
 
 
+type EditorRecord = FlowFileRecord & {
+  sourceIndex?: number;
+};
+
 interface AppState {
-  records: FlowFileRecord[];
+  records: EditorRecord[];
   selectedIndex: number;
 }
 
@@ -23,6 +27,13 @@ interface IncomingMessage {
   validation?: string[];
   parseError?: string;
 }
+
+type FlowFileRecordViewModel = {
+  attributes: FlowFileAttribute[];
+  contentSize: number;
+  filename: string;
+  sourceIndex?: number;
+};
 
 (function () {
   const vscode = acquireVsCodeApi();
@@ -39,38 +50,44 @@ interface IncomingMessage {
   const removeRecordButton = document.getElementById('remove-record') as HTMLButtonElement;
   const attributesContainer = document.getElementById('attributes') as HTMLDivElement;
   const addAttributeButton = document.getElementById('add-attribute') as HTMLButtonElement;
-  const contentInput = document.getElementById('content') as HTMLTextAreaElement;
+  const contentSummary = document.getElementById('content-summary') as HTMLParagraphElement;
+  const openContentButton = document.getElementById('open-content') as HTMLButtonElement;
   const validateButton = document.getElementById('validate') as HTMLButtonElement;
   const saveButton = document.getElementById('save') as HTMLButtonElement;
   const validationList = document.getElementById('validation-list') as HTMLUListElement;
 
-  function createDefaultRecord(): FlowFileRecord {
+  function createDefaultRecord(): EditorRecord {
     return {
       attributes: [['filename', 'flowfile.txt']],
-      contentText: ''
+      contentBytes: new Uint8Array()
     };
   }
 
-  function normalizeRecords(records: unknown): FlowFileRecord[] {
+  function normalizeRecords(records: unknown): EditorRecord[] {
     if (!Array.isArray(records) || records.length === 0) {
       return [createDefaultRecord()];
     }
 
-    return records.map((record: any) => {
-      const attributes: FlowFileAttribute[] = Array.isArray(record.attributes)
-        ? record.attributes
+    return records.map((record: unknown): EditorRecord => {
+      const viewModel = (record ?? {}) as Partial<FlowFileRecordViewModel>;
+      const attributes: FlowFileAttribute[] = Array.isArray(viewModel.attributes)
+        ? viewModel.attributes
             .filter((attribute: unknown) => Array.isArray(attribute) && attribute.length >= 2)
             .map((attribute: any): FlowFileAttribute => [String(attribute[0] ?? ''), String(attribute[1] ?? '')])
         : [];
+      const contentSize = Number.isInteger(viewModel.contentSize) && (viewModel.contentSize ?? 0) > 0
+        ? Number(viewModel.contentSize)
+        : 0;
 
       return {
         attributes,
-        contentText: typeof record.contentText === 'string' ? record.contentText : ''
+        contentBytes: new Uint8Array(contentSize),
+        sourceIndex: Number.isInteger(viewModel.sourceIndex) ? Number(viewModel.sourceIndex) : undefined
       };
     });
   }
 
-  function getCurrentRecord(): FlowFileRecord {
+  function getCurrentRecord(): EditorRecord {
     if (!state.records[state.selectedIndex]) {
       state.records[state.selectedIndex] = createDefaultRecord();
     }
@@ -85,7 +102,7 @@ interface IncomingMessage {
       option.value = String(index);
 
       const filenameAttr = record.attributes.find(attr => attr[0] === 'filename');
-      option.textContent = filenameAttr ? filenameAttr[1] : `Record ${index + 1}`;
+      option.textContent = filenameAttr ? filenameAttr[1] : `FlowFile ${index + 1}`;
       
       recordSelect.appendChild(option);
     });
@@ -148,8 +165,6 @@ interface IncomingMessage {
   }
 
   function readFormToState(): void {
-    const currentRecord = getCurrentRecord();
-    currentRecord.contentText = contentInput.value;
     rebuildAttributesFromDom();
   }
 
@@ -163,7 +178,7 @@ interface IncomingMessage {
       currentRecord.attributes.forEach(([key, value]) => createAttributeRow(key, value));
     }
 
-    contentInput.value = currentRecord.contentText;
+    contentSummary.textContent = `${currentRecord.contentBytes.length} bytes`;
   }
 
   function renderValidation(messages?: string[], parseError?: string): void {
@@ -199,10 +214,10 @@ interface IncomingMessage {
 
   addRecordButton.addEventListener('click', () => {
     readFormToState();
-    state.records.push(createDefaultRecord());
-    state.selectedIndex = state.records.length - 1;
-    renderRecordOptions();
-    renderCurrentRecord();
+    vscode.postMessage({
+      type: 'addFlowFiles',
+      payload: state.records.map((record) => ({ attributes: record.attributes, sourceIndex: record.sourceIndex }))
+    });
   });
 
   removeRecordButton.addEventListener('click', () => {
@@ -224,16 +239,25 @@ interface IncomingMessage {
     createAttributeRow('', '');
   });
 
-  contentInput.addEventListener('input', readFormToState);
+  openContentButton.addEventListener('click', () => {
+    readFormToState();
+    vscode.postMessage({ type: 'openContent', recordIndex: state.selectedIndex });
+  });
 
   validateButton.addEventListener('click', () => {
     readFormToState();
-    vscode.postMessage({ type: 'validate', payload: state.records });
+    vscode.postMessage({
+      type: 'validate',
+      payload: state.records.map((record) => ({ attributes: record.attributes, sourceIndex: record.sourceIndex }))
+    });
   });
 
   saveButton.addEventListener('click', () => {
     readFormToState();
-    vscode.postMessage({ type: 'save', payload: state.records });
+    vscode.postMessage({
+      type: 'save',
+      payload: state.records.map((record) => ({ attributes: record.attributes, sourceIndex: record.sourceIndex }))
+    });
   });
 
   window.addEventListener('message', (event: MessageEvent<IncomingMessage>) => {

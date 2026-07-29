@@ -6,7 +6,7 @@ This extension adds a custom editor for FlowFile v3 documents and opens `*.flowf
 
 It also features a command for creating FlowFile v3
 
-![Shows the command "NiFi: Create Empty FlowFile v3"](media/Screenshot02.png "FlowFile v3 creation command")
+![Shows the command "NiFi: Create FlowFile v3"](media/Screenshot02.png "FlowFile v3 creation command")
 
 ## FlowFile v3 binary format support
 
@@ -27,8 +27,9 @@ Length encoding uses:
 ## UI behavior and assumptions
 
 - The custom editor lets you add/remove/select multiple records in one file.
-- Each record supports editing attributes and content.
-- Content is presented and edited as UTF-8 text in the UI; saving writes UTF-8 bytes back into the FlowFile record.
+- Each record supports editing attributes.
+- Record content is preserved as raw bytes and is not decoded into UTF-8 text in the editor.
+- Use the **Open Content** button to open the selected record content in a separate editor tab (written to a temporary file).
 
 ## Development
 
