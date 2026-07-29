@@ -28,7 +28,7 @@ jobs:
         run: npm test
 
       - name: Package VSIX
-        run: npx @vscode/vsce package --no-dependencies
+        run: npm run package
 
       - name: Set release metadata
         id: release_meta

@@ -142,7 +142,11 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
+# Other
+
 *.vsix
 *.flowfile
+*.flowfile-v3
+
 media/editor.js
 media/editor.js.map

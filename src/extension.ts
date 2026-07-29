@@ -16,6 +16,150 @@ type ParseResult = {
   parseError?: string;
 };
 
+async function extractCoreAttributes(fileUri: vscode.Uri): Promise<FlowFileAttribute[]> {
+  // Get file metadata (size, creation time, modified time)
+  const stat = await vscode.workspace.fs.stat(fileUri);
+
+  // Extract absolute path directory (web-compatible, excluding filename)
+  const absolutePathSegments = fileUri.path.split('/');
+  absolutePathSegments.pop(); // Remove filename
+  const absolutePath = absolutePathSegments.join('/') || '/';
+
+  // Extract relative path directory
+  const relativePath = vscode.workspace.asRelativePath(fileUri);
+  const relativePathSegments = relativePath.split('/');
+  const filename = relativePathSegments.pop() || 'unknown';
+  const relativeDirPath = relativePathSegments.join('/') || '/';
+
+  // Read the file metadata
+  // https://github.com/apache/nifi/blob/main/nifi-api/src/main/java/org/apache/nifi/flowfile/attributes/CoreAttributes.java
+  return [
+    // The filename of the FlowFile. The filename should not contain any directory structure.
+    ['filename', filename],
+    // The FlowFile’s path indicates the relative directory to which a FlowFile belongs and does not contain the filename.
+    ['path', relativeDirPath],
+    // The FlowFile’s absolute path indicates the absolute directory to which a FlowFile belongs and does not contain the filename.
+    ['absolute.path', absolutePath],
+
+    ['size', stat.size.toString()],
+    ['file.creationTime', new Date(stat.ctime).toISOString()],
+    ['file.lastModifiedTime', new Date(stat.mtime).toISOString()],
+  ];
+}
+
+async function readUriAsFlowFile(fileUri: vscode.Uri) {
+  const attributes = extractCoreAttributes(fileUri);
+
+  // Read the file as a Uint8Array
+  const fileData = await vscode.workspace.fs.readFile(fileUri);
+
+  // Convert the Uint8Array to a UTF-8 string
+  const contentText = new TextDecoder().decode(fileData);
+
+  const result: FlowFileRecord = {
+    attributes: await attributes,
+    contentText: contentText,
+  };
+
+  return result;
+}
+
+async function createEmptyFlowFile() {
+  const contentFiles = await vscode.window.showOpenDialog({
+    canSelectFiles: true,
+    canSelectMany: true,
+  })
+
+  if (!contentFiles) {
+    return;
+  }
+
+  // Get the current workspace folder
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+
+  if (!workspaceFolder) {
+    vscode.window.showErrorMessage('No active workspace folder found.');
+    return;
+  }
+
+  // Show the input box at the Command Palette position
+  const relativePath = await vscode.window.showInputBox({
+    prompt: 'Enter relative file path to save',
+    value: 'output.flowfile-v3',
+    valueSelection: [0, 6],
+    placeHolder: 'output.flowfile-v3',
+    validateInput: (text) => {
+      return text.trim().length === 0 ? 'Path cannot be empty' : null;
+    }
+  });
+
+  // User pressed Escape or submitted an empty string
+  if (!relativePath) {
+    return;
+  }
+
+  // 3. Resolve the relative path against the workspace root
+  const uri = vscode.Uri.joinPath(workspaceFolder.uri, relativePath);
+
+  try {
+    const defaultRecords = await Promise.all(
+      contentFiles.map(readUriAsFlowFile)
+    );
+    const bytes = serializeFlowFileStream(defaultRecords);
+
+    // Write the binary data to the selected file
+    await vscode.workspace.fs.writeFile(uri, bytes);
+
+    // Open the newly created file using your custom editor
+    await vscode.commands.executeCommand('vscode.openWith', uri, CUSTOM_EDITOR_VIEW_TYPE);
+
+    vscode.window.showInformationMessage('Empty FlowFile created successfully.');
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    vscode.window.showErrorMessage(`Failed to create FlowFile: ${errorMessage}`);
+  }
+}
+
+async function mergeFlowFiles() {
+  const contentFiles = await vscode.window.showOpenDialog({
+    canSelectFiles: true,
+    canSelectMany: true,
+  })
+
+  if (!contentFiles) {
+    return;
+  }
+
+  // Get the current workspace folder
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+
+  if (!workspaceFolder) {
+    vscode.window.showErrorMessage('No active workspace folder found.');
+    return;
+  }
+
+  // Show the input box at the Command Palette position
+  const relativePath = await vscode.window.showInputBox({
+    prompt: 'Enter relative file path to save',
+    value: 'output.flowfile-v3',
+    valueSelection: [0, 6],
+    placeHolder: 'output.flowfile-v3',
+    validateInput: (text) => {
+      return text.trim().length === 0 ? 'Path cannot be empty' : null;
+    }
+  });
+
+  // User pressed Escape or submitted an empty string
+  if (!relativePath) {
+    return;
+  }
+
+  // 3. Resolve the relative path against the workspace root
+  const uri = vscode.Uri.joinPath(workspaceFolder.uri, relativePath);
+
+  vscode.window.showErrorMessage("Not implemented yet");
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.window.registerCustomEditorProvider(
@@ -24,92 +168,15 @@ export function activate(context: vscode.ExtensionContext): void {
       { webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false }
     )
   );
+
   // Register the command to create a new, empty FlowFile
   context.subscriptions.push(
-    vscode.commands.registerCommand('nifiFlowFile.createEmptyFlowFile', async () => {
-      const contentFiles = await vscode.window.showOpenDialog({
-        canSelectFiles: true,
-        canSelectMany: true,
-      })
+    vscode.commands.registerCommand('nifiFlowFile.createEmptyFlowFile', createEmptyFlowFile)
+  );
 
-      if(!contentFiles) {
-        return;
-      }
-
-      // Prompt the user for a location to save the new file
-      const uri = await vscode.window.showSaveDialog({
-        title: 'Create Empty FlowFile v3',
-        saveLabel: 'Create',
-
-        filters: {
-          'FlowFile': ['.flowfile-v3', '.flowfile', '.pkg', '*'] // Adjust extensions to whatever your users typically use
-        }
-      });
-
-      if (!uri) {
-        return; // User canceled the dialog
-      }
-
-      try {
-        const defaultRecords = await Promise.all(
-          contentFiles.map(async (fileUri) => {
-            // Get file metadata (size, creation time, modified time)
-            const stat = await vscode.workspace.fs.stat(fileUri);
-
-            // Extract absolute path directory (web-compatible, excluding filename)
-            const absolutePathSegments = fileUri.path.split('/');
-            absolutePathSegments.pop(); // Remove filename
-            const absolutePath = absolutePathSegments.join('/') || '/';
-
-            // Extract relative path directory
-            const relativePath = vscode.workspace.asRelativePath(fileUri);
-            const relativePathSegments = relativePath.split('/');
-            const filename = relativePathSegments.pop() || 'unknown';
-            const relativeDirPath = relativePathSegments.join('/') || '/';
-
-            // Read the file metadata
-            // https://github.com/apache/nifi/blob/main/nifi-api/src/main/java/org/apache/nifi/flowfile/attributes/CoreAttributes.java
-            const attributes: FlowFileAttribute[] = [
-              // The filename of the FlowFile. The filename should not contain any directory structure.
-              ['filename', filename],
-              // The FlowFile’s path indicates the relative directory to which a FlowFile belongs and does not contain the filename.
-              ['path', relativeDirPath],
-              // The FlowFile’s absolute path indicates the absolute directory to which a FlowFile belongs and does not contain the filename.
-              ['absolute.path', absolutePath],
-
-              ['size', stat.size.toString()],
-              ['file.creationTime', new Date(stat.ctime).toISOString()],
-              ['file.lastModifiedTime', new Date(stat.mtime).toISOString()],
-            ];
-
-            // Read the file as a Uint8Array
-            const fileData = await vscode.workspace.fs.readFile(fileUri);
-            
-            // Convert the Uint8Array to a UTF-8 string
-            const contentText = new TextDecoder().decode(fileData);
-
-            const result: FlowFileRecord = {
-              attributes: attributes,
-              contentText: contentText,
-            };
-
-            return result;
-          })
-        );
-        const bytes = serializeFlowFileStream(defaultRecords);
-
-        // Write the binary data to the selected file
-        await vscode.workspace.fs.writeFile(uri, bytes);
-
-        // Open the newly created file using your custom editor
-        await vscode.commands.executeCommand('vscode.openWith', uri, CUSTOM_EDITOR_VIEW_TYPE);
-        
-        vscode.window.showInformationMessage('Empty FlowFile created successfully.');
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        vscode.window.showErrorMessage(`Failed to create FlowFile: ${errorMessage}`);
-      }
-    })
+  // Register the command to create a new, empty FlowFile
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nifiFlowFile.createEmptyFlowFile', mergeFlowFiles)
   );
 }
 
@@ -152,7 +219,7 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
 
   private readonly webviewsByDocumentUri = new Map<string, Set<vscode.WebviewPanel>>();
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  constructor(private readonly context: vscode.ExtensionContext) { }
 
   async openCustomDocument(uri: vscode.Uri): Promise<FlowFileBinaryDocument> {
     const bytes = await vscode.workspace.fs.readFile(uri);
@@ -470,14 +537,14 @@ function normalizeIncomingRecords(payload: unknown): FlowFileRecord[] {
     const attributes =
       Array.isArray(candidate.attributes)
         ? candidate.attributes
-            .map((attribute): FlowFileAttribute | null => {
-              if (!Array.isArray(attribute) || attribute.length < 2) {
-                return null;
-              }
+          .map((attribute): FlowFileAttribute | null => {
+            if (!Array.isArray(attribute) || attribute.length < 2) {
+              return null;
+            }
 
-              return [String(attribute[0] ?? ''), String(attribute[1] ?? '')];
-            })
-            .filter((attribute): attribute is FlowFileAttribute => attribute !== null)
+            return [String(attribute[0] ?? ''), String(attribute[1] ?? '')];
+          })
+          .filter((attribute): attribute is FlowFileAttribute => attribute !== null)
         : [];
 
     return {
@@ -506,7 +573,7 @@ function createDefaultRecord(): FlowFileRecord {
 class ByteCursor {
   private offset = 0;
 
-  constructor(private readonly bytes: Uint8Array) {}
+  constructor(private readonly bytes: Uint8Array) { }
 
   hasMoreData(): boolean {
     return this.offset < this.bytes.length;
