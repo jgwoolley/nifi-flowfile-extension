@@ -173,6 +173,11 @@ async function mergeFlowFiles() {
   // 3. Resolve the relative path against the workspace root
   const uri = vscode.Uri.joinPath(workspaceFolder.uri, relativePath);
 
+  const shouldWrite = await confirmFileOverwrite(uri, 'Save FlowFile');
+  if (!shouldWrite) {
+    return;
+  }
+
   const flowFiles: FlowFileRecord[] = [];
   for(const flowFilePath of flowFilePaths) {
     // Read the file as a Uint8Array
@@ -318,10 +323,6 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
         }
         case 'addFlowFiles': {
           const currentRecords = normalizeIncomingRecords(incoming.payload, document.records);
-          const shouldProceed = await confirmFileOverwrite(document.uri, 'Add FlowFile');
-          if (!shouldProceed) {
-            break;
-          }
 
           const selectedFiles = await vscode.window.showOpenDialog({
             canSelectFiles: true,
