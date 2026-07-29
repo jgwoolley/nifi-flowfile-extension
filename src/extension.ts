@@ -50,6 +50,31 @@ async function readUriAsFlowFile(fileUri: vscode.Uri) {
   return result;
 }
 
+async function uriExists(uri: vscode.Uri): Promise<boolean> {
+  try {
+    await vscode.workspace.fs.stat(uri);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function confirmFileOverwrite(uri: vscode.Uri, promptSource: string): Promise<boolean> {
+  const alreadyExists = await uriExists(uri);
+  if (!alreadyExists) {
+    return true;
+  }
+
+  const overwrite = 'Overwrite';
+  const selection = await vscode.window.showWarningMessage(
+    `${promptSource}: ${vscode.workspace.asRelativePath(uri)} already exists. Overwrite it?`,
+    { modal: true },
+    overwrite
+  );
+
+  return selection === overwrite;
+}
+
 async function createFlowFile() {
   const contentFiles = await vscode.window.showOpenDialog({
     canSelectFiles: true,
@@ -88,6 +113,11 @@ async function createFlowFile() {
   const uri = vscode.Uri.joinPath(workspaceFolder.uri, relativePath);
 
   try {
+    const shouldWrite = await confirmFileOverwrite(uri, 'Create FlowFile');
+    if (!shouldWrite) {
+      return;
+    }
+
     const defaultRecords = await Promise.all(
       contentFiles.map(readUriAsFlowFile)
     );
@@ -288,6 +318,11 @@ class FlowFileBinaryEditorProvider implements vscode.CustomEditorProvider<FlowFi
         }
         case 'addFlowFiles': {
           const currentRecords = normalizeIncomingRecords(incoming.payload, document.records);
+          const shouldProceed = await confirmFileOverwrite(document.uri, 'Add FlowFile');
+          if (!shouldProceed) {
+            break;
+          }
+
           const selectedFiles = await vscode.window.showOpenDialog({
             canSelectFiles: true,
             canSelectMany: true,
