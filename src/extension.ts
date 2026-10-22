@@ -5,6 +5,7 @@ import { FlowFileAttribute, FlowFileRecord } from './schemas';
 import { cloneRecords, createDefaultRecord, parseFlowFileStream, serializeFlowFileStream, validateRecords } from './utils';
 
 const CUSTOM_EDITOR_VIEW_TYPE = 'nifiFlowFile.flowFileV3Editor';
+const FLOW_DEFINITION_VIEW_TYPE = 'nifiFlowFile.flowDefinitionViewer';
 
 async function extractCoreAttributes(fileUri: vscode.Uri): Promise<FlowFileAttribute[]> {
   // Get file metadata (size, creation time, modified time)
@@ -212,10 +213,113 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('nifiFlowFile.mergeFlowFiles', mergeFlowFiles)
   );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nifiFlowFile.openFlowFile', async (resource?: vscode.Uri) => {
+      const uri = resource ?? vscode.window.activeTextEditor?.document.uri;
+      if (!uri) {
+        vscode.window.showErrorMessage('Select a FlowFile v3 file to open.');
+        return;
+      }
+      await vscode.commands.executeCommand('vscode.openWith', uri, CUSTOM_EDITOR_VIEW_TYPE);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.window.registerCustomEditorProvider(
+      FLOW_DEFINITION_VIEW_TYPE,
+      new FlowDefinitionViewerProvider(context),
+      { webviewOptions: { retainContextWhenHidden: true } }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nifiFlowFile.openFlowDefinition', async (resource?: vscode.Uri) => {
+      const uri = resource ?? vscode.window.activeTextEditor?.document.uri;
+      if (!uri) {
+        vscode.window.showErrorMessage('Select a NiFi flow definition JSON file to open.');
+        return;
+      }
+      await vscode.commands.executeCommand('vscode.openWith', uri, FLOW_DEFINITION_VIEW_TYPE);
+    })
+  );
 }
 
 export function deactivate(): void {
   // No-op.
+}
+
+class FlowDefinitionDocument implements vscode.CustomDocument {
+  constructor(public readonly uri: vscode.Uri) { }
+  dispose(): void { /* nothing to release */ }
+}
+
+/** Read-only viewer that renders a NiFi flow definition JSON file like the NiFi canvas. */
+class FlowDefinitionViewerProvider implements vscode.CustomReadonlyEditorProvider<FlowDefinitionDocument> {
+  constructor(private readonly context: vscode.ExtensionContext) { }
+
+  openCustomDocument(uri: vscode.Uri): FlowDefinitionDocument {
+    return new FlowDefinitionDocument(uri);
+  }
+
+  async resolveCustomEditor(document: FlowDefinitionDocument, webviewPanel: vscode.WebviewPanel): Promise<void> {
+    const webview = webviewPanel.webview;
+    webview.options = { enableScripts: true };
+
+    const mediaUri = (file: string) => webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media', file));
+    const nonce = createNonce();
+    webview.html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource} 'nonce-${nonce}';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="${mediaUri('canvas.css')}" rel="stylesheet" />
+  <title>NiFi Flow Definition</title>
+</head>
+<body>
+  <div id="toolbar">
+    <nav id="breadcrumbs"></nav>
+    <button id="fit" type="button">Fit to screen</button>
+  </div>
+  <div id="stage">
+  <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path id="arrow-path" d="M0 0 L10 5 L0 10 z" />
+      </marker>
+    </defs>
+    <g id="viewport"></g>
+  </svg>
+  <pre id="status" hidden></pre>
+  </div>
+  <aside id="details"></aside>
+  <script type="module" nonce="${nonce}" src="${mediaUri('canvas.js')}"></script>
+</body>
+</html>`;
+
+    const sendFlow = async () => {
+      try {
+        const bytes = await vscode.workspace.fs.readFile(document.uri);
+        const payload = JSON.parse(new TextDecoder().decode(bytes));
+        void webview.postMessage({ type: 'flow', payload });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        void webview.postMessage({ type: 'flow', error: `Failed to read flow definition: ${message}` });
+      }
+    };
+
+    webview.onDidReceiveMessage((message: { type?: unknown }) => {
+      if (message?.type === 'requestFlow') {
+        void sendFlow();
+      }
+    });
+
+    const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.joinPath(document.uri, '..'), path.basename(document.uri.path)));
+    watcher.onDidChange(() => void sendFlow());
+    watcher.onDidCreate(() => void sendFlow());
+    webviewPanel.onDidDispose(() => watcher.dispose());
+  }
 }
 
 class FlowFileBinaryDocument implements vscode.CustomDocument {

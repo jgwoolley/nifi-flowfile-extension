@@ -2,7 +2,7 @@
   "name": "nifi-flowfile-extension",
   "displayName": "NiFi FlowFile v3 Editor",
   "description": "VS Code custom editor for .flowfile and .flowfile-v3 documents",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "publisher": "nf3t",
   "engines": {
     "vscode": "^1.90.0"
@@ -57,6 +57,16 @@
         "command": "nifiFlowFile.mergeFlowFiles",
         "title": "NiFi: Merge FlowFiles v3",
         "category": "FlowFile"
+      },
+      {
+        "command": "nifiFlowFile.openFlowFile",
+        "title": "NiFi: Open FlowFile v3 in Editor",
+        "category": "FlowFile"
+      },
+      {
+        "command": "nifiFlowFile.openFlowDefinition",
+        "title": "NiFi: Open Flow Definition as Canvas",
+        "category": "FlowFile"
       }
     ],
     "customEditors": [
@@ -72,8 +82,32 @@
           }
         ],
         "priority": "default"
+      },
+      {
+        "viewType": "nifiFlowFile.flowDefinitionViewer",
+        "displayName": "NiFi Flow Definition Canvas",
+        "selector": [
+          {
+            "filenamePattern": "*.json"
+          }
+        ],
+        "priority": "option"
       }
-    ]
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "nifiFlowFile.openFlowFile",
+          "when": "resourceExtname == .flowfile || resourceExtname == .flowfile-v3",
+          "group": "navigation"
+        },
+        {
+          "command": "nifiFlowFile.openFlowDefinition",
+          "when": "resourceExtname == .json",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

@@ -24,6 +24,10 @@ Length encoding uses:
 - 2-byte unsigned length when value is `< 65535`
 - `0xFFFF` marker followed by 4-byte unsigned length for larger values
 
+## Flow definition canvas
+
+Open a NiFi flow definition (`.json`) with **NiFi: Open Flow Definition as Canvas** to browse it as if on the NiFi canvas: pan/zoom, double-click process groups to drill in (breadcrumbs to go back), and click processors, groups or connections to see their configuration. Sensitive property values are never shown.
+
 ## UI behavior and assumptions
 
 - The custom editor lets you add/remove/select multiple records in one file.

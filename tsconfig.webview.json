@@ -8,5 +8,5 @@
     "strict": true,
     "outDir": "media"
   },
-  "include": ["src/editor.ts"]
+  "include": ["src/editor.ts", "src/canvas.ts"]
 }
